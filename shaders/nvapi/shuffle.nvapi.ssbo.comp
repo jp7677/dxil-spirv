@@ -2,18 +2,17 @@
 #define NV_SHADER_EXTN_REGISTER_SPACE space0
 #include "nvHLSLExtns.h"
 
-RWStructuredBuffer<uint> Blah;
-
-RWByteAddressBuffer BAB;
-RWTexture1D<float2> RWTex;
+RWStructuredBuffer<int> UAV1;
+RWStructuredBuffer<int2> UAV2;
+RWStructuredBuffer<int4> UAV3;
 
 [numthreads(32, 1, 1)]
 void main(uint thr : SV_DispatchThreadID)
 {
-	Blah[thr] = NvShfl(thr, 9);
-
-	// Test UAV reference shenanigans (currently disabled).
-	// Blah[100] = NvInterlockedAddFp16x2(BAB, 64, 9);
-	// Blah[101] = NvInterlockedAddFp16x2(RWTex, thr, 10);
+	UAV1[thr + 0] = NvShfl(thr, 9);
+	UAV2[thr + 1] = NvShfl(int2(thr + 1, thr + 2), 9);
+	UAV3[thr + 1] = NvShfl(int4(thr + 3, thr + 4, thr + 5, thr + 6), 9);
+	UAV1[thr + 2] = NvShflUp(thr + 7, 2);
+	UAV1[thr + 3] = NvShflDown(thr + 8, 3);
+	UAV1[thr + 4] = NvShflXor(thr + 9, 4);
 }
-

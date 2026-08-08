@@ -173,22 +173,185 @@ static spv::Id get_argument_as_float(Converter::Impl &impl, uint32_t offset)
 	return bitcast_op->id;
 }
 
-static bool emit_nvapi_extn_op_shuffle(Converter::Impl &impl)
+static bool emit_nvapi_extn_op_shuffle(Converter::Impl &impl, uint32_t opcode)
 {
-	// Dummy throwaway implementation.
-	spv::Id val = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
-	spv::Id lane = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 1);
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformShuffle
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformShuffleXor
 
 	auto &builder = impl.builder();
 	builder.addCapability(spv::CapabilityGroupNonUniformShuffle);
 
-	auto *op = impl.allocate(spv::OpGroupNonUniformShuffle, builder.makeUintType(32));
-	op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
-	op->add_id(val);
-	op->add_id(lane);
-	impl.add(op);
+	auto uint32_type = builder.makeUintType(32);
 
-	impl.nvapi.fake_doorbell_outputs[0] = op->id;
+	spv::Id val = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
+	spv::Id lane = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 1);
+	// spv::Id shflMask = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 2);
+	// should shflMask affect any of those?
+	// impl.suggest_maximum_wave_size(32);
+	// impl.shader_analysis.require_subgroup_shuffles = true;
+
+	spv::Op op;
+	switch (opcode)
+	{
+	case NV_EXTN_OP_SHFL:
+		op = spv::OpGroupNonUniformShuffle;
+		break;
+
+	case NV_EXTN_OP_SHFL_XOR:
+		op = spv::OpGroupNonUniformShuffleXor;
+		break;
+
+	default:
+		return false;
+	}
+
+	auto *shfl_op = impl.allocate(op, uint32_type);
+	shfl_op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	shfl_op->add_id(val);
+	shfl_op->add_id(lane);
+	impl.add(shfl_op);
+
+	impl.nvapi.fake_doorbell_outputs[0] = shfl_op->id;
+	return true;
+}
+
+static bool emit_nvapi_extn_op_shuffle_relative(Converter::Impl &impl, uint32_t opcode)
+{
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformShuffleUp
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformShuffleDown
+
+	auto &builder = impl.builder();
+	builder.addCapability(spv::CapabilityGroupNonUniformShuffleRelative);
+
+	auto uint32_type = builder.makeUintType(32);
+
+	spv::Id val = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
+	spv::Id delta = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 1);
+	// spv::Id shflMask = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 2);
+	// should shflMask affect any of those?
+	// impl.suggest_maximum_wave_size(32);
+	// impl.shader_analysis.require_subgroup_shuffles = true;
+
+	spv::Op op;
+	switch (opcode)
+	{
+	case NV_EXTN_OP_SHFL_UP:
+		op = spv::OpGroupNonUniformShuffleUp;
+		break;
+
+	case NV_EXTN_OP_SHFL_DOWN:
+		op = spv::OpGroupNonUniformShuffleDown;
+		break;
+
+	default:
+		return false;
+	}
+
+	auto *shfl_op = impl.allocate(op, uint32_type);
+	shfl_op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	shfl_op->add_id(val);
+	shfl_op->add_id(delta);
+	impl.add(shfl_op);
+
+	impl.nvapi.fake_doorbell_outputs[0] = shfl_op->id;
+	return true;
+}
+
+static bool emit_nvapi_extn_op_vote(Converter::Impl &impl, uint32_t opcode)
+{
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformAll
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformAny
+
+	auto &builder = impl.builder();
+	builder.addCapability(spv::CapabilityGroupNonUniformVote);
+
+	auto bool_type = builder.makeBoolType();
+	auto uint32_type = builder.makeUintType(32);
+
+	spv::Id predicate = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
+
+	auto *predicate_bool = impl.allocate(spv::OpINotEqual, bool_type);
+	predicate_bool->add_id(predicate);
+	predicate_bool->add_id(builder.makeUintConstant(0));
+	impl.add(predicate_bool);
+
+	spv::Op op;
+	switch (opcode)
+	{
+	case NV_EXTN_OP_VOTE_ALL:
+		op = spv::OpGroupNonUniformAll;
+		break;
+
+	case NV_EXTN_OP_VOTE_ANY:
+		op = spv::OpGroupNonUniformAny;
+		break;
+
+	default:
+		return false;
+	}
+
+	auto *vote_op = impl.allocate(op, bool_type);
+	vote_op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	vote_op->add_id(predicate_bool->id);
+	impl.add(vote_op);
+
+	auto *result = impl.allocate(spv::OpSelect, uint32_type);
+	result->add_id(vote_op->id);
+	result->add_id(builder.makeUintConstant(0xffffffff));
+	result->add_id(builder.makeUintConstant(0));
+	impl.add(result);
+
+	impl.nvapi.fake_doorbell_outputs[0] = result->id;
+	return true;
+}
+
+static bool emit_nvapi_extn_op_ballot(Converter::Impl &impl)
+{
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformBallot
+
+	auto &builder = impl.builder();
+	builder.addCapability(spv::CapabilityGroupNonUniformBallot);
+
+	auto bool_type = builder.makeBoolType();
+	auto uint32_type = builder.makeUintType(32);
+	auto ivec4_type = builder.makeVectorType(uint32_type, 4);
+
+	spv::Id predicate = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
+
+	auto *predicate_bool = impl.allocate(spv::OpINotEqual, bool_type);
+	predicate_bool->add_id(predicate);
+	predicate_bool->add_id(builder.makeUintConstant(0));
+	impl.add(predicate_bool);
+
+	auto *ballot_op = impl.allocate(spv::OpGroupNonUniformBallot, ivec4_type);
+	ballot_op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	ballot_op->add_id(predicate_bool->id);
+	impl.add(ballot_op);
+
+	auto *extract_op = impl.allocate(spv::OpCompositeExtract, uint32_type);
+	extract_op->add_id(ballot_op->id);
+	extract_op->add_literal(0); // NVIDIA's warp size is 32, but OpGroupNonUniformBallot returns 128, so hopefully the first vector element fits
+	impl.add(extract_op);
+
+	impl.nvapi.fake_doorbell_outputs[0] = extract_op->id;
+	return true;
+}
+
+static bool emit_nvapi_extn_op_get_lane_id(Converter::Impl &impl)
+{
+	// https://registry.khronos.org/VulkanSC/specs/1.0-extensions/man/html/SubgroupLocalInvocationId.html
+
+	auto &builder = impl.builder();
+	builder.addCapability(spv::CapabilityGroupNonUniform);
+
+	auto uint32_type = builder.makeUintType(32);
+
+	spv::Id local_id = impl.spirv_module.get_builtin_shader_input(spv::BuiltInSubgroupLocalInvocationId);
+	auto *load_op = impl.allocate(spv::OpLoad, uint32_type);
+	load_op->add_id(local_id);
+	impl.add(load_op);
+
+	impl.nvapi.fake_doorbell_outputs[0] = load_op->id;
 	return true;
 }
 
@@ -260,11 +423,14 @@ static bool emit_nvapi_extn_op_get_special(Converter::Impl &impl)
 			builder.addExtension("SPV_KHR_shader_clock");
 			builder.addCapability(spv::CapabilityShaderClockKHR);
 
-			auto *read_op = impl.allocate(spv::OpReadClockKHR, builder.makeVectorType(builder.makeUintType(32), 2));
+			auto uint32_type = builder.makeUintType(32);
+			auto uint32vec2_type = builder.makeVectorType(uint32_type, 2);
+
+			auto *read_op = impl.allocate(spv::OpReadClockKHR, uint32vec2_type);
 			read_op->add_id(builder.makeUintConstant(1));
 			impl.add(read_op);
 
-			auto *extract_op = impl.allocate(spv::OpCompositeExtract, builder.makeUintType(32));
+			auto *extract_op = impl.allocate(spv::OpCompositeExtract, uint32_type);
 			extract_op->add_id(read_op->id);
 			extract_op->add_literal(subopcode - NV_SPECIALOP_GLOBAL_TIMER_LO);
 			impl.add(extract_op);
@@ -803,9 +969,20 @@ bool NVAPIState::can_commit_opcode()
 		switch (opcode)
 		{
 		case NV_EXTN_OP_SHFL:
+		case NV_EXTN_OP_SHFL_UP:
+		case NV_EXTN_OP_SHFL_DOWN:
+		case NV_EXTN_OP_SHFL_XOR:
 			return fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr &&
 			       fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 1] != nullptr &&
 			       fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 2] != nullptr;
+
+		case NV_EXTN_OP_VOTE_ALL:
+		case NV_EXTN_OP_VOTE_ANY:
+		case NV_EXTN_OP_VOTE_BALLOT:
+			return fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr;
+
+		case NV_EXTN_OP_GET_LANE_ID:
+			return true;
 
 		case NV_EXTN_OP_FP16_ATOMIC:
 			LOGE("NVAPI opcode %u not fully implemented.\n", opcode);
@@ -904,8 +1081,35 @@ bool NVAPIState::commit_opcode(Converter::Impl &impl, bool analysis)
 		switch (opcode)
 		{
 		case NV_EXTN_OP_SHFL:
+		case NV_EXTN_OP_SHFL_XOR:
 			impl.nvapi.num_expected_clock_outputs = 1;
-			if (!analysis && !emit_nvapi_extn_op_shuffle(impl))
+			if (!analysis && !emit_nvapi_extn_op_shuffle(impl, opcode))
+				return false;
+			break;
+
+		case NV_EXTN_OP_SHFL_UP:
+		case NV_EXTN_OP_SHFL_DOWN:
+			impl.nvapi.num_expected_clock_outputs = 1;
+			if (!analysis && !emit_nvapi_extn_op_shuffle_relative(impl, opcode))
+				return false;
+			break;
+
+		case NV_EXTN_OP_VOTE_ALL:
+		case NV_EXTN_OP_VOTE_ANY:
+			impl.nvapi.num_expected_clock_outputs = 1;
+			if (!analysis && !emit_nvapi_extn_op_vote(impl, opcode))
+				return false;
+			break;
+
+		case NV_EXTN_OP_VOTE_BALLOT:
+			impl.nvapi.num_expected_clock_outputs = 1;
+			if (!analysis && !emit_nvapi_extn_op_ballot(impl))
+				return false;
+			break;
+
+		case NV_EXTN_OP_GET_LANE_ID:
+			impl.nvapi.num_expected_clock_outputs = 1;
+			if (!analysis && !emit_nvapi_extn_op_get_lane_id(impl))
 				return false;
 			break;
 
