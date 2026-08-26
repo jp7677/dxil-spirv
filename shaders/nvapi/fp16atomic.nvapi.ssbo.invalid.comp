@@ -1,0 +1,29 @@
+#define NV_SHADER_EXTN_SLOT u127
+#define NV_SHADER_EXTN_REGISTER_SPACE space0
+#include "nvHLSLExtns.h"
+
+RWStructuredBuffer<uint> UAV1;
+RWStructuredBuffer<uint2> UAV2;
+
+RWByteAddressBuffer BAB;
+RWTexture1D<float2> RWTex1;
+RWTexture2D<float2> RWTex2;
+RWTexture3D<float2> RWTex3;
+RWTexture3D<float4> RWTex4;
+
+[numthreads(32, 1, 1)]
+void main(uint thr : SV_DispatchThreadID)
+{
+    float2 v1 = {45.5f,46.5f};
+
+    // There is no way yet to pass validation for buffers since we cannot change
+    // the resulting buffer type from uint to f16vec2
+    UAV1[100] = NvInterlockedAddFp16x2(BAB, 4, v1);
+
+    UAV1[101] = NvInterlockedAddFp16x2(RWTex1, 5, v1);
+    UAV1[102] = NvInterlockedAddFp16x2(RWTex2, uint2(6,7), v1);
+    UAV1[103] = NvInterlockedAddFp16x2(RWTex3, uint3(8,9,10), v1);
+
+    float4 v2 = {78,79,80,81};
+    UAV2[102] = NvInterlockedAddFp16x4(RWTex4, uint3(8,9,10), v2);
+}
