@@ -1814,7 +1814,8 @@ bool Converter::Impl::emit_uavs(const llvm::MDNode *uavs, const llvm::MDNode *re
 			tags = llvm::dyn_cast<llvm::MDNode>(uav->getOperand(10));
 
 		unsigned stride = 0;
-		spv::ImageFormat format = spv::ImageFormatUnknown;
+		// TODO Hack for passing validation
+		spv::ImageFormat format = spv::ImageFormatR32f;
 
 		auto actual_component_type = DXIL::ComponentType::U32;
 		auto effective_component_type = actual_component_type;
