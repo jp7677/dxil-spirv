@@ -254,6 +254,34 @@ static bool emit_nvapi_extn_op_get_special(Converter::Impl &impl)
 
 		switch (subopcode)
 		{
+		case NV_SPECIALOP_THREADLTMASK:
+		{
+			// https://github.khronos.org/SPIRV-Registry/extensions/KHR/SPV_KHR_shader_ballot.html
+
+			builder.addExtension("SPV_KHR_shader_ballot");
+			builder.addCapability(spv::CapabilitySubgroupBallotKHR);
+
+			auto uint32_type = builder.makeUintType(32);
+			auto uint32vec4_type = builder.makeVectorType(uint32_type, 4);
+
+			auto builtin = spv::BuiltInSubgroupLtMaskKHR;
+			spv::Id var_id = impl.create_variable(spv::StorageClassInput, uint32vec4_type);
+			builder.addDecoration(var_id, spv::DecorationBuiltIn, builtin);
+			builder.addDecoration(var_id, spv::DecorationVolatile);
+			impl.spirv_module.register_builtin_shader_input(var_id, builtin);
+
+			auto *load_op = impl.allocate(spv::OpLoad, uint32vec4_type);
+			load_op->add_id(var_id);
+			impl.add(load_op);
+
+			auto *extract_op = impl.allocate(spv::OpCompositeExtract, uint32_type);
+			extract_op->add_id(load_op->id);
+			extract_op->add_literal(0);
+			impl.add(extract_op);
+
+			impl.nvapi.fake_doorbell_outputs[0] = extract_op->id;
+			return true;
+		}
 		case NV_SPECIALOP_GLOBAL_TIMER_LO:
 		case NV_SPECIALOP_GLOBAL_TIMER_HI:
 		{
@@ -276,6 +304,30 @@ static bool emit_nvapi_extn_op_get_special(Converter::Impl &impl)
 	}
 
 	return false;
+}
+
+static bool emit_nvapi_extn_op_shuffle_generic(Converter::Impl &impl)
+{
+	// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpGroupNonUniformShuffle
+
+	auto &builder = impl.builder();
+	builder.addCapability(spv::CapabilityGroupNonUniformShuffle);
+
+	auto uint32_type = builder.makeUintType(32);
+
+	spv::Id val = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
+	spv::Id lane = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 1);
+	// spv::Id maskClampVal = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 2); // TODO: What todo here?
+
+	auto *shfl_op = impl.allocate(spv::OpGroupNonUniformShuffle, uint32_type);
+	shfl_op->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	shfl_op->add_id(val);
+	shfl_op->add_id(lane);
+	impl.add(shfl_op);
+
+	impl.nvapi.fake_doorbell_outputs[0] = shfl_op->id;
+	impl.nvapi.fake_doorbell_outputs[1] = builder.makeUintConstant(1); // TODO: What todo here?
+	return true;
 }
 
 static bool emit_nvapi_extn_op_hit_object_trace_ray(Converter::Impl &impl, const llvm::CallInst *instruction)
@@ -818,6 +870,12 @@ bool NVAPIState::can_commit_opcode()
 		case NV_EXTN_OP_GET_SPECIAL:
 			return fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr;
 
+		case NV_EXTN_OP_SHFL_GENERIC:
+			return fake_doorbell_inputs[NVAPI_ARGUMENT_NUM_OUTPUTS_FOR_INC_COUNTER] != nullptr &&
+				   fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr &&
+				   fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 1] != nullptr &&
+				   fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 2] != nullptr;
+
 		case NV_EXTN_OP_HIT_OBJECT_TRACE_RAY:
 			return fake_doorbell_inputs[NVAPI_ARGUMENT_NUM_OUTPUTS_FOR_INC_COUNTER] != nullptr &&
 			       fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr;
@@ -918,6 +976,12 @@ bool NVAPIState::commit_opcode(Converter::Impl &impl, bool analysis)
 		case NV_EXTN_OP_GET_SPECIAL:
 			impl.nvapi.num_expected_clock_outputs = 1;
 			if (!analysis && !emit_nvapi_extn_op_get_special(impl))
+				return false;
+			break;
+
+		case NV_EXTN_OP_SHFL_GENERIC:
+			impl.nvapi.num_expected_clock_outputs = 2;
+			if (!analysis && !emit_nvapi_extn_op_shuffle_generic(impl))
 				return false;
 			break;
 

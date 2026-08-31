@@ -1,0 +1,12 @@
+#define NV_SHADER_EXTN_SLOT u127
+#define NV_SHADER_EXTN_REGISTER_SPACE space0
+#include "nvHLSLExtns.h"
+
+RWStructuredBuffer<int> UAV1;
+
+[numthreads(32, 1, 1)]
+void main(uint thr : SV_DispatchThreadID)
+{
+    // Needs NV_EXTN_OP_VOTE_BALLOT
+	// UAV1[thr] = NvWaveMultiPrefixInclusiveAdd(thr, 4);
+}
