@@ -1867,6 +1867,14 @@ bool Converter::Impl::emit_uavs(const llvm::MDNode *uavs, const llvm::MDNode *re
 				actual_component_type = DXIL::ComponentType::U64;
 			}
 			effective_component_type = get_effective_typed_resource_type(actual_component_type);
+
+			if (access_meta.has_nvapi_atomic_16bit &&
+			    (resource_kind == DXIL::ResourceKind::Texture1D ||
+				 resource_kind == DXIL::ResourceKind::Texture2D ||
+			     resource_kind == DXIL::ResourceKind::Texture3D))
+			{
+				format = spv::ImageFormatRg16f;
+			}
 		}
 		else
 		{

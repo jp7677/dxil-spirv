@@ -8,7 +8,6 @@
 #endif
 #extension GL_EXT_shader_16bit_storage : require
 #extension GL_EXT_shader_atomic_float : require
-#extension GL_EXT_shader_image_load_formatted : require
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, std430) writeonly buffer SSBO
@@ -21,10 +20,10 @@ layout(set = 0, binding = 1, std430) writeonly buffer _12_14
     uvec2 _m0[];
 } _14;
 
-layout(set = 0, binding = 2) uniform image1D _18;
-layout(set = 0, binding = 3) uniform image2D _21;
-layout(set = 0, binding = 4) uniform image3D _24;
-layout(set = 0, binding = 5) uniform image3D _25;
+layout(set = 0, binding = 2, rg16f) uniform image1D _18;
+layout(set = 0, binding = 3, rg16f) uniform image2D _21;
+layout(set = 0, binding = 4, rg16f) uniform image3D _24;
+layout(set = 0, binding = 5, rg16f) uniform image3D _25;
 
 void main()
 {
@@ -101,13 +100,13 @@ OpDecorate %25 NonReadable
 %13 = OpTypePointer StorageBuffer %12
 %14 = OpVariable %13 StorageBuffer
 %15 = OpTypeFloat 32
-%16 = OpTypeImage %15 1D 0 0 0 2 Unknown
+%16 = OpTypeImage %15 1D 0 0 0 2 Rg16f
 %17 = OpTypePointer UniformConstant %16
 %18 = OpVariable %17 UniformConstant
-%19 = OpTypeImage %15 2D 0 0 0 2 Unknown
+%19 = OpTypeImage %15 2D 0 0 0 2 Rg16f
 %20 = OpTypePointer UniformConstant %19
 %21 = OpVariable %20 UniformConstant
-%22 = OpTypeImage %15 3D 0 0 0 2 Unknown
+%22 = OpTypeImage %15 3D 0 0 0 2 Rg16f
 %23 = OpTypePointer UniformConstant %22
 %24 = OpVariable %23 UniformConstant
 %25 = OpVariable %23 UniformConstant
