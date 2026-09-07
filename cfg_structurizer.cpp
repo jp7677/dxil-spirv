@@ -1475,6 +1475,25 @@ bool CFGStructurizer::run()
 		structurize(1);
 	}
 
+	need_restructure = false;
+	if (rewrite_invalid_switch_breaks())
+	{
+		if (!graphviz_path.empty())
+		{
+			auto graphviz_final = graphviz_path + ".switch-break-rewrite";
+			log_cfg_graphviz(graphviz_final.c_str());
+		}
+
+		recompute_cfg();
+		need_restructure = true;
+	}
+
+	if (need_restructure)
+	{
+		// Need to redo the final structurization pass if we end up here.
+		structurize(1);
+	}
+
 	//log_cfg("Final");
 	if (!graphviz_path.empty())
 	{
@@ -8268,6 +8287,51 @@ void CFGStructurizer::recompute_dominance_frontier(CFGNode *node)
 			}
 		}
 	}
+}
+
+bool CFGStructurizer::rewrite_invalid_switch_breaks()
+{
+	bool did_rewrite = false;
+
+	for (auto *node : forward_post_visit_order)
+	{
+		if (node->ir.terminator.type != Terminator::Type::Switch)
+			continue;
+
+		// Switch case labels must be contained within the switch statement.
+		// Use a dummy label if we have to.
+		// Normally, we handle this during process_switch_blocks, but
+		// ladder rewrites may screw it up.
+		// Use a much simplified model here since we basically have the final CFG in place at this point.
+		// We can rely on simple dominance.
+
+		// Any direct succ that we don't structurally dominate means the case label needs an interposing block.
+		for (auto *succ : node->succ)
+		{
+			bool structurally_dominates = node->dominates(succ);
+			for (auto *header : succ->headers)
+				if (header != node)
+					structurally_dominates = false;
+
+			if (structurally_dominates)
+				continue;
+
+			auto *dummy_break = pool.create_node();
+			dummy_break->name = node->name + (succ->succ_back_edge ? ".continue" : ".break");
+			dummy_break->immediate_dominator = node;
+			dummy_break->immediate_post_dominator = succ;
+			dummy_break->forward_post_visit_order = node->forward_post_visit_order;
+			dummy_break->backward_post_visit_order = node->backward_post_visit_order;
+			dummy_break->ir.terminator.type = Terminator::Type::Branch;
+			dummy_break->ir.terminator.direct_block = succ;
+			dummy_break->is_pseudo_back_edge = succ->succ_back_edge != nullptr;
+			dummy_break->add_branch(succ);
+			node->retarget_branch(succ, dummy_break);
+			did_rewrite = true;
+		}
+	}
+
+	return did_rewrite;
 }
 
 bool CFGStructurizer::rewrite_invalid_loop_breaks()
