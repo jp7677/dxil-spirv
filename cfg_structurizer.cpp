@@ -5269,7 +5269,7 @@ CFGStructurizer::SwitchProgressMode CFGStructurizer::process_switch_blocks(unsig
 					}
 				}
 
-				if (merge != inner_merge && inner_merge != natural_merge && node->dominates(merge))
+				if (merge != inner_merge && inner_merge != natural_merge)
 				{
 					// If node dominates the merge, it's important that node remains a header block.
 					// If we have an inner merge, we need to transpose the control flow so that
@@ -5281,8 +5281,54 @@ CFGStructurizer::SwitchProgressMode CFGStructurizer::process_switch_blocks(unsig
 
 					if (constructs.size() >= 2)
 					{
-						collect_and_dispatch_control_flow(node, merge, constructs, false, false);
-						return SwitchProgressMode::IterativeModify;
+						// A simple collector only works if there is no complicated interleaving pattern going on.
+						// We want our constructs to collectively dominate all control flow that reaches inner merge.
+						bool has_inner_merge_in_df = false;
+
+						const auto can_reach_all_constructs = [&](const CFGNode *n)
+						{
+							for (auto *construct : constructs)
+								if (!query_reachability(*n, *construct))
+									return false;
+							return true;
+						};
+
+						// We want a candidate that punches through our assumption that the candidates
+						// isolate control flow reaching inner merge.
+						for (auto *construct : constructs)
+						{
+							for (auto *pdf : construct->post_dominance_frontier)
+							{
+								if (!can_reach_all_constructs(pdf) && pdf != node &&
+								    has_element(pdf->dominance_frontier, inner_merge) &&
+								    query_reachability(*pdf, *natural_merge))
+								{
+									has_inner_merge_in_df = true;
+								}
+							}
+						}
+
+						bool simple_case = !has_inner_merge_in_df || !merge->post_dominates(node);
+
+						// If we don't dominate the merge block,
+						// only accept the complicated case as a reason for rewriting control flow.
+						// Otherwise, it's just a false positive.
+						if (!simple_case || node->dominates(merge))
+						{
+							if (simple_case)
+							{
+								// Simple case.
+								collect_and_dispatch_control_flow(node, merge, constructs, false, false);
+							}
+							else
+							{
+								// Complicated case. Full capture of all exits and dispatch.
+								constructs.push_back(merge);
+								constructs.push_back(inner_merge);
+								collect_and_dispatch_control_flow(node, merge, constructs, false, true);
+							}
+							return SwitchProgressMode::IterativeModify;
+						}
 					}
 				}
 
@@ -6880,7 +6926,8 @@ void CFGStructurizer::collect_and_dispatch_control_flow(
 	// since we may have stray breaks that will invert merge ordering, and cause issues.
 	// Freezing control flow is important for interleaved merge patterns where we don't want to explode
 	// the control flow ladders all over the place.
-	bool freeze_control_flow = !common_idom->pred_back_edge && common_pdom->post_dominates(common_idom);
+	bool freeze_control_flow = !common_idom->pred_back_edge && common_pdom->post_dominates(common_idom) &&
+	                           common_idom->ir.terminator.type != Terminator::Type::Switch;
 
 	if (freeze_control_flow)
 	{
