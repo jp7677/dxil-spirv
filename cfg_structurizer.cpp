@@ -5293,65 +5293,74 @@ CFGStructurizer::SwitchProgressMode CFGStructurizer::process_switch_blocks(unsig
 					// If node dominates the merge, it's important that node remains a header block.
 					// If we have an inner merge, we need to transpose the control flow so that
 					// we avoid the inner merge altogether.
+					// First, find any exit points of the switch.
 					Vector<CFGNode *> constructs = { natural_merge };
 					for (auto *pred : inner_merge->pred)
 						if (!query_reachability(*pred, *natural_merge) && !query_reachability(*natural_merge, *pred))
 							constructs.push_back(pred);
 
-					if (constructs.size() >= 2)
+					// A simple collector only works if there is no complicated interleaving pattern going on.
+					// We want our constructs to collectively dominate all control flow that reaches inner merge.
+					bool has_inner_merge_in_df = false;
+
+					const auto can_reach_all_constructs = [&](const CFGNode *n)
 					{
-						// A simple collector only works if there is no complicated interleaving pattern going on.
-						// We want our constructs to collectively dominate all control flow that reaches inner merge.
-						bool has_inner_merge_in_df = false;
-
-						const auto can_reach_all_constructs = [&](const CFGNode *n)
-						{
-							for (auto *construct : constructs)
-								if (!query_reachability(*n, *construct))
-									return false;
-							return true;
-						};
-
-						// We want a candidate that punches through our assumption that the candidates
-						// isolate control flow reaching inner merge.
 						for (auto *construct : constructs)
+							if (!query_reachability(*n, *construct))
+								return false;
+						return true;
+					};
+
+					// We want a candidate that punches through our assumption that the candidates
+					// isolate control flow reaching inner merge.
+					for (auto *construct : constructs)
+					{
+						for (auto *pdf : construct->post_dominance_frontier)
 						{
-							for (auto *pdf : construct->post_dominance_frontier)
+							if ((!can_reach_all_constructs(pdf) || constructs.size() == 1) && pdf != node &&
+								has_element(pdf->dominance_frontier, inner_merge) &&
+								query_reachability(*pdf, *natural_merge))
 							{
-								if (!can_reach_all_constructs(pdf) && pdf != node &&
-								    has_element(pdf->dominance_frontier, inner_merge) &&
-								    query_reachability(*pdf, *natural_merge))
-								{
-									has_inner_merge_in_df = true;
-								}
+								has_inner_merge_in_df = true;
 							}
 						}
+					}
 
-						bool simple_case = !has_inner_merge_in_df || !merge->post_dominates(node);
+					bool simple_case = !has_inner_merge_in_df || !merge->post_dominates(node);
+					bool allow_rewrite = !simple_case || node->dominates(merge);
 
-						// If we don't dominate the merge block,
-						// only accept the complicated case as a reason for rewriting control flow.
-						// Otherwise, it's just a false positive.
-						if (!simple_case || node->dominates(merge))
+					if (constructs.size() == 1 && simple_case)
+						allow_rewrite = false;
+
+					// If we don't dominate the merge block,
+					// only accept the complicated case as a reason for rewriting control flow.
+					// Otherwise, it's just a false positive.
+					if (allow_rewrite)
+					{
+						if (simple_case)
 						{
-							if (simple_case)
-							{
-								// Simple case.
-								collect_and_dispatch_control_flow(node, merge, constructs, false, false);
-							}
-							else
-							{
-								// Complicated case. Full capture of all exits and dispatch.
-								constructs.push_back(merge);
-								constructs.push_back(inner_merge);
-								collect_and_dispatch_control_flow(node, merge, constructs, false, true);
-							}
-							return SwitchProgressMode::IterativeModify;
+							// Simple case.
+							collect_and_dispatch_control_flow(node, merge, constructs, false, false);
 						}
+						else
+						{
+							// Complicated case. Full capture of all exits and dispatch.
+							constructs.push_back(merge);
+							constructs.push_back(inner_merge);
+							collect_and_dispatch_control_flow(node, merge, constructs, false, true);
+						}
+						return SwitchProgressMode::IterativeModify;
 					}
 				}
 
-				merge = inner_merge;
+				// FIXME: This is very dodgy.
+				// If we have branches escaping the switch, we absolutely
+				// cannot be in a situation where a block inside the switch is the final
+				// header. That will lead to an assert tripping.
+				// However, if the switch breaks out further than we would normally expect,
+				// then we can rely on that outer header to be the final "shell" that we break to.
+				if (!node->dominates(merge))
+					merge = inner_merge;
 
 				// Relying on loop ladder system might not be possible in all situations.
 				// It's possible that the switch block is also a loop header for example.
