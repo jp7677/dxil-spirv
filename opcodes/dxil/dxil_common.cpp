@@ -724,7 +724,7 @@ uint32_t log2i_floor(uint32_t value)
 #elif defined(_MSC_VER)
 	unsigned long result;
 	// Must succeed due to assert.
-	_BitScanReverse(&result, x);
+	_BitScanReverse(&result, value);
 	return result;
 #else
 	for (int i = 31; i >= 0; i--)
