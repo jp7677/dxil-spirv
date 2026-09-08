@@ -961,6 +961,9 @@ bool emit_buffer_load_instruction(Converter::Impl &impl, const llvm::CallInst *i
 	smeared_access_mask |= smeared_access_mask >> 1u;
 	smeared_access_mask |= smeared_access_mask >> 2u;
 
+	if (!smeared_access_mask)
+		smeared_access_mask = 1;
+
 	if (is_vector)
 	{
 		sparse = (access_mask & (1u << 1)) != 0;
