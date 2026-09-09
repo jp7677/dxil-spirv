@@ -386,7 +386,7 @@ static spv::Id emit_integer_division_instruction(Converter::Impl &impl, const In
 		return op->id;
 	}
 
-	auto scalar_type = instruction->getType()->getScalarType();
+	auto *scalar_type = instruction->getType()->getScalarType();
 
 	if (is_constant_divisor)
 	{
@@ -404,20 +404,26 @@ static spv::Id emit_integer_division_instruction(Converter::Impl &impl, const In
 		}
 	}
 
+	ExpectAssumeCodes expect_assume_code;
 	HelperCall helper;
+
 	switch (opcode)
 	{
 	case spv::OpUDiv:
 		helper = HelperCall::UDiv;
+		expect_assume_code = ExpectAssumeUDivByZero;
 		break;
 	case spv::OpUMod:
 		helper = HelperCall::UMod;
+		expect_assume_code = ExpectAssumeUModByZero;
 		break;
 	case spv::OpSDiv:
 		helper = HelperCall::SDiv;
+		expect_assume_code = ExpectAssumeSDivByZero;
 		break;
 	default:
 		helper = HelperCall::SRem;
+		expect_assume_code = ExpectAssumeSRemByZero;
 		break;
 	}
 
@@ -428,6 +434,36 @@ static spv::Id emit_integer_division_instruction(Converter::Impl &impl, const In
 		call = impl.allocate(spv::OpFunctionCall, impl.get_type_id(instruction->getType()));
 	else
 		call = impl.allocate(spv::OpFunctionCall, instruction);
+
+	if (impl.options.instruction_instrumentation.enabled &&
+	    impl.options.instruction_instrumentation.type == InstructionInstrumentationType::ExpectAssume)
+	{
+		unsigned vecsize = 1;
+		if (auto *vec = llvm::dyn_cast<llvm::VectorType>(instruction->getType()))
+			vecsize = vec->getVectorSize();
+
+		spv::Id bool_type = builder.makeBoolType();
+		if (vecsize > 1)
+			bool_type = builder.makeVectorType(bool_type, vecsize);
+
+		auto *eq = impl.allocate(spv::OpINotEqual, bool_type);
+		eq->add_id(operand_id(1));
+		eq->add_id(builder.makeNullConstant(impl.get_type_id(instruction->getOperand(1)->getType())));
+		impl.add(eq);
+
+		if (vecsize > 1)
+		{
+			auto *all = impl.allocate(spv::OpAll, builder.makeBoolType());
+			all->add_id(eq->id);
+			impl.add(all);
+			eq = all;
+		}
+
+		auto *assert_non_zero = impl.allocate(spv::OpAssumeTrueKHR);
+		assert_non_zero->add_id(eq->id);
+		assert_non_zero->add_id(builder.makeUintConstant(expect_assume_code));
+		impl.add(assert_non_zero);
+	}
 
 	call->add_id(call_id);
 	call->add_id(operand_id(0));

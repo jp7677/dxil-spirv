@@ -72,6 +72,10 @@ enum ExpectAssumeCodes
 	ExpectAssumeAllocaGEPOOB = 1234000010,
 	ExpectAssumeQuestionableBABOverflow = 1234000011,
 	ExpectAssumeQuestionableStructuredOverflow = 1234000012,
+	ExpectAssumeUDivByZero = 1234000013,
+	ExpectAssumeUModByZero = 1234000014,
+	ExpectAssumeSDivByZero = 1234000015,
+	ExpectAssumeSRemByZero = 1234000016,
 };
 
 struct InstructionInstrumentationInfo
