@@ -964,6 +964,28 @@ static bool emit_nvapi_extn_op_hit_object_get_uint(Converter::Impl &impl, uint32
 	return true;
 }
 
+static bool emit_nvapi_extn_op_hit_object_get_triangel_object_positions(Converter::Impl &impl)
+{
+	auto &builder = impl.builder();
+
+	// Unfortunately we cannot implement this properly since there is no
+	// OpHitObjectGetIntersectionTriangleVertexPositionsNV in SPV_NV_shader_invocation_reorder
+	// SPV_EXT_shader_invocation_reorder contains it, but migrating to it seems impossible
+	// since we cannot map OpHitObjectRecordHitWithIndexNV to OpRayQueryInitializeKHR/OpHitObjectRecordFromQueryEXT
+	// So just return zero's to make this a no-op which should at least make shader compilation happy :(
+	auto o = 0U;
+	for (auto i = 0U; i < 9; i++)
+	{
+		auto *bitcast_op = impl.allocate(spv::OpBitcast, builder.makeUintType(32));
+		bitcast_op->add_id(builder.makeUintConstant(0));
+		impl.add(bitcast_op);
+
+		impl.nvapi.fake_doorbell_outputs[o++] = bitcast_op->id;
+	}
+
+	return true;
+}
+
 static bool emit_nvapi_extn_op_hit_object_get_ray_desc(Converter::Impl &impl)
 {
 	spv::Id hit_object = get_argument(impl, NVAPI_ARGUMENT_SRC0U + 0);
@@ -1226,6 +1248,7 @@ bool NVAPIState::can_commit_opcode()
 		case NV_EXTN_OP_HIT_OBJECT_GET_ATTRIBUTES:
 		case NV_EXTN_OP_HIT_OBJECT_GET_SHADER_TABLE_INDEX:
 		case NV_EXTN_OP_HIT_OBJECT_GET_CLUSTER_ID:
+		case NV_EXTN_OP_HIT_OBJECT_GET_TRIANGLE_OBJECT_POSITIONS:
 			return fake_doorbell_inputs[NVAPI_ARGUMENT_SRC0U + 0] != nullptr;
 
 		case NV_EXTN_OP_HIT_OBJECT_LOAD_LOCAL_ROOT_TABLE_CONSTANT:
@@ -1335,6 +1358,12 @@ bool NVAPIState::commit_opcode(Converter::Impl &impl, bool analysis)
 		case NV_EXTN_OP_HIT_OBJECT_GET_CLUSTER_ID:
 			impl.nvapi.num_expected_clock_outputs = 1;
 			if (!analysis && !emit_nvapi_extn_op_hit_object_get_uint(impl, opcode))
+				return false;
+			break;
+
+		case NV_EXTN_OP_HIT_OBJECT_GET_TRIANGLE_OBJECT_POSITIONS:
+			impl.nvapi.num_expected_clock_outputs = 9;
+			if (!analysis && !emit_nvapi_extn_op_hit_object_get_triangel_object_positions(impl))
 				return false;
 			break;
 
