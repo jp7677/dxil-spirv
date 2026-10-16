@@ -10,6 +10,7 @@ struct Payload
 RaytracingAccelerationStructure AS : register(t0);
 RWStructuredBuffer<float> RWFloat : register(u1);
 RWStructuredBuffer<uint> RWUint : register(u2);
+RWStructuredBuffer<float3x3> RWFloat3x3 : register(u2);
 
 [shader("raygeneration")]
 void main()
@@ -53,6 +54,7 @@ void main()
 	RWUint[11] = hitobject.GetShaderTableIndex();
 
 	RWUint[12] = hitobject.LoadLocalRootTableConstant(32);
+	RWFloat3x3[0] = hitobject.GetTriangleObjectPositions();
 
 	ray = hitobject.GetRayDesc();
 
