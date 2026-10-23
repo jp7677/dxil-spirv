@@ -1,0 +1,334 @@
+; SPIR-V
+; Version: 1.4
+; Generator: Unknown(30017); 21022
+; Bound: 259
+; Schema: 0
+OpCapability Shader
+OpCapability ImageBuffer
+OpCapability RayQueryKHR
+OpCapability RayTraversalPrimitiveCullingKHR
+OpCapability RayTracingSpheresGeometryNV
+OpCapability RayTracingLinearSweptSpheresGeometryNV
+OpExtension "SPV_KHR_ray_query"
+OpExtension "SPV_NV_linear_swept_spheres"
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %3 "main" %8 %12 %13 %19 %23
+OpExecutionMode %3 LocalSize 64 1 1
+OpName %3 "main"
+OpDecorate %8 DescriptorSet 0
+OpDecorate %8 Binding 0
+OpDecorate %12 DescriptorSet 0
+OpDecorate %12 Binding 1
+OpDecorate %12 NonReadable
+OpDecorate %13 DescriptorSet 0
+OpDecorate %13 Binding 2
+OpDecorate %13 NonReadable
+OpDecorate %19 BuiltIn LocalInvocationIndex
+%1 = OpTypeVoid
+%2 = OpTypeFunction %1
+%5 = OpTypeInt 32 1
+%6 = OpTypeAccelerationStructureKHR
+%7 = OpTypePointer UniformConstant %6
+%8 = OpVariable %7 UniformConstant
+%9 = OpTypeInt 32 0
+%10 = OpTypeImage %9 Buffer 0 0 0 2 R32ui
+%11 = OpTypePointer UniformConstant %10
+%12 = OpVariable %11 UniformConstant
+%13 = OpVariable %11 UniformConstant
+%18 = OpTypePointer Input %9
+%19 = OpVariable %18 Input
+%21 = OpTypeRayQueryKHR
+%22 = OpTypePointer Private %21
+%23 = OpVariable %22 Private
+%24 = OpConstant %9 4
+%25 = OpConstant %9 170
+%26 = OpTypeFloat 32
+%27 = OpConstant %26 1
+%28 = OpConstant %26 5
+%29 = OpConstant %26 2
+%30 = OpConstant %26 6
+%31 = OpConstant %26 3
+%32 = OpConstant %26 7
+%33 = OpTypeVector %26 3
+%35 = OpConstant %26 4
+%37 = OpConstant %26 8
+%38 = OpTypeBool
+%41 = OpConstant %9 1
+%43 = OpConstant %9 0
+%53 = OpConstant %9 2
+%56 = OpTypeVector %9 4
+%69 = OpConstant %9 13
+%86 = OpConstant %9 8
+%89 = OpConstant %9 9
+%92 = OpConstant %9 10
+%95 = OpConstant %9 11
+%113 = OpConstant %9 3
+%119 = OpTypeArray %33 %53
+%120 = OpTypeArray %26 %53
+%157 = OpConstant %9 5
+%160 = OpConstant %9 6
+%163 = OpConstant %9 7
+%235 = OpConstant %9 12
+%242 = OpConstant %9 14
+%3 = OpFunction %1 None %2
+%4 = OpLabel
+OpBranch %247
+%247 = OpLabel
+%14 = OpLoad %10 %13
+%15 = OpLoad %10 %12
+%17 = OpLoad %6 %8
+%20 = OpLoad %9 %19
+%34 = OpCompositeConstruct %33 %27 %29 %31
+%36 = OpCompositeConstruct %33 %28 %30 %32
+OpRayQueryInitializeKHR %23 %17 %24 %25 %34 %35 %36 %37
+%39 = OpRayQueryProceedKHR %38 %23
+OpSelectionMerge %255 None
+OpBranchConditional %39 %248 %255
+%248 = OpLabel
+OpBranch %249
+%249 = OpLabel
+%44 = OpRayQueryGetRayFlagsKHR %9 %23
+%45 = OpRayQueryIsLSSHitNV %38 %23 %43
+%46 = OpSelect %9 %45 %41 %43
+%47 = OpINotEqual %38 %46 %43
+%48 = OpRayQueryGetRayFlagsKHR %9 %23
+%49 = OpRayQueryIsSphereHitNV %38 %23 %43
+%50 = OpSelect %9 %49 %41 %43
+%51 = OpINotEqual %38 %50 %43
+%52 = OpShiftLeftLogical %9 %20 %53
+%54 = OpSelect %9 %47 %41 %43
+%55 = OpIMul %9 %20 %24
+%57 = OpCompositeConstruct %56 %54 %54 %54 %54
+OpImageWrite %15 %55 %57
+%58 = OpBitwiseOr %9 %52 %53
+%59 = OpSelect %9 %51 %41 %43
+%60 = OpIMul %9 %20 %24
+%61 = OpIAdd %9 %60 %53
+%62 = OpCompositeConstruct %56 %59 %59 %59 %59
+OpImageWrite %15 %61 %62
+%63 = OpBitwiseOr %9 %50 %46
+%64 = OpIEqual %38 %63 %43
+OpLoopMerge %254 %253 None
+OpBranch %250
+%250 = OpLabel
+OpSelectionMerge %252 None
+OpBranchConditional %64 %252 %251
+%251 = OpLabel
+%246 = OpRayQueryGetRayFlagsKHR %9 %23
+OpRayQueryConfirmIntersectionKHR %23
+OpBranch %252
+%252 = OpLabel
+OpBranch %253
+%253 = OpLabel
+%166 = OpRayQueryGetRayFlagsKHR %9 %23
+%167 = OpRayQueryGetIntersectionLSSPositionsNV %119 %23 %43
+%168 = OpRayQueryGetIntersectionLSSRadiiNV %120 %23 %43
+%169 = OpCompositeExtract %26 %167 0 0
+%170 = OpBitcast %9 %169
+%171 = OpCompositeExtract %26 %167 0 1
+%172 = OpBitcast %9 %171
+%173 = OpCompositeExtract %26 %167 0 2
+%174 = OpBitcast %9 %173
+%175 = OpCompositeExtract %26 %168 0
+%176 = OpBitcast %9 %175
+%177 = OpCompositeExtract %26 %167 1 0
+%178 = OpBitcast %9 %177
+%179 = OpCompositeExtract %26 %167 1 1
+%180 = OpBitcast %9 %179
+%181 = OpCompositeExtract %26 %167 1 2
+%182 = OpBitcast %9 %181
+%183 = OpCompositeExtract %26 %168 1
+%184 = OpBitcast %9 %183
+%185 = OpBitcast %26 %170
+%186 = OpBitcast %26 %172
+%187 = OpBitcast %26 %174
+%188 = OpBitcast %26 %176
+%189 = OpBitcast %26 %178
+%190 = OpBitcast %26 %180
+%191 = OpBitcast %26 %182
+%192 = OpBitcast %26 %184
+%193 = OpBitcast %9 %185
+%194 = OpCompositeConstruct %56 %193 %193 %193 %193
+OpImageWrite %14 %43 %194
+%195 = OpBitcast %9 %186
+%196 = OpCompositeConstruct %56 %195 %195 %195 %195
+OpImageWrite %14 %41 %196
+%197 = OpBitcast %9 %187
+%198 = OpCompositeConstruct %56 %197 %197 %197 %197
+OpImageWrite %14 %53 %198
+%199 = OpBitcast %9 %188
+%200 = OpCompositeConstruct %56 %199 %199 %199 %199
+OpImageWrite %14 %113 %200
+%201 = OpBitcast %9 %189
+%202 = OpCompositeConstruct %56 %201 %201 %201 %201
+OpImageWrite %14 %24 %202
+%203 = OpBitcast %9 %190
+%204 = OpCompositeConstruct %56 %203 %203 %203 %203
+OpImageWrite %14 %157 %204
+%205 = OpBitcast %9 %191
+%206 = OpCompositeConstruct %56 %205 %205 %205 %205
+OpImageWrite %14 %160 %206
+%207 = OpBitcast %9 %192
+%208 = OpCompositeConstruct %56 %207 %207 %207 %207
+OpImageWrite %14 %163 %208
+%209 = OpRayQueryGetRayFlagsKHR %9 %23
+%210 = OpRayQueryGetIntersectionSpherePositionNV %33 %23 %43
+%211 = OpRayQueryGetIntersectionSphereRadiusNV %26 %23 %43
+%212 = OpCompositeExtract %26 %210 0
+%213 = OpBitcast %9 %212
+%214 = OpCompositeExtract %26 %210 1
+%215 = OpBitcast %9 %214
+%216 = OpCompositeExtract %26 %210 2
+%217 = OpBitcast %9 %216
+%218 = OpBitcast %9 %211
+%219 = OpBitcast %26 %213
+%220 = OpBitcast %26 %215
+%221 = OpBitcast %26 %217
+%222 = OpBitcast %26 %218
+%223 = OpBitcast %9 %219
+%224 = OpCompositeConstruct %56 %223 %223 %223 %223
+OpImageWrite %14 %86 %224
+%225 = OpBitcast %9 %220
+%226 = OpCompositeConstruct %56 %225 %225 %225 %225
+OpImageWrite %14 %89 %226
+%227 = OpBitcast %9 %221
+%228 = OpCompositeConstruct %56 %227 %227 %227 %227
+OpImageWrite %14 %92 %228
+%229 = OpBitcast %9 %222
+%230 = OpCompositeConstruct %56 %229 %229 %229 %229
+OpImageWrite %14 %95 %230
+%231 = OpRayQueryGetRayFlagsKHR %9 %23
+%232 = OpRayQueryGetIntersectionLSSHitValueNV %26 %23 %43
+%233 = OpBitcast %9 %232
+%234 = OpBitcast %26 %233
+%236 = OpBitcast %9 %234
+%237 = OpCompositeConstruct %56 %236 %236 %236 %236
+OpImageWrite %14 %235 %237
+%238 = OpRayQueryGetRayFlagsKHR %9 %23
+%239 = OpRayQueryGetIntersectionTKHR %26 %23 %43
+%240 = OpBitcast %9 %239
+%241 = OpBitcast %26 %240
+%243 = OpBitcast %9 %241
+%244 = OpCompositeConstruct %56 %243 %243 %243 %243
+OpImageWrite %14 %242 %244
+OpRayQueryTerminateKHR %23
+%245 = OpRayQueryProceedKHR %38 %23
+OpBranchConditional %245 %249 %254
+%254 = OpLabel
+OpBranch %255
+%255 = OpLabel
+%40 = OpRayQueryGetIntersectionTypeKHR %9 %23 %41
+%42 = OpIEqual %38 %40 %43
+OpSelectionMerge %257 None
+OpBranchConditional %42 %257 %256
+%256 = OpLabel
+%65 = OpRayQueryGetRayFlagsKHR %9 %23
+%66 = OpRayQueryGetIntersectionLSSHitValueNV %26 %23 %41
+%67 = OpBitcast %9 %66
+%68 = OpBitcast %26 %67
+%70 = OpBitcast %9 %68
+%71 = OpCompositeConstruct %56 %70 %70 %70 %70
+OpImageWrite %14 %69 %71
+%72 = OpRayQueryGetRayFlagsKHR %9 %23
+%73 = OpRayQueryGetIntersectionSpherePositionNV %33 %23 %41
+%74 = OpRayQueryGetIntersectionSphereRadiusNV %26 %23 %41
+%75 = OpCompositeExtract %26 %73 0
+%76 = OpBitcast %9 %75
+%77 = OpCompositeExtract %26 %73 1
+%78 = OpBitcast %9 %77
+%79 = OpCompositeExtract %26 %73 2
+%80 = OpBitcast %9 %79
+%81 = OpBitcast %9 %74
+%82 = OpBitcast %26 %76
+%83 = OpBitcast %26 %78
+%84 = OpBitcast %26 %80
+%85 = OpBitcast %26 %81
+%87 = OpBitcast %9 %82
+%88 = OpCompositeConstruct %56 %87 %87 %87 %87
+OpImageWrite %14 %86 %88
+%90 = OpBitcast %9 %83
+%91 = OpCompositeConstruct %56 %90 %90 %90 %90
+OpImageWrite %14 %89 %91
+%93 = OpBitcast %9 %84
+%94 = OpCompositeConstruct %56 %93 %93 %93 %93
+OpImageWrite %14 %92 %94
+%96 = OpBitcast %9 %85
+%97 = OpCompositeConstruct %56 %96 %96 %96 %96
+OpImageWrite %14 %95 %97
+%98 = OpRayQueryGetRayFlagsKHR %9 %23
+%99 = OpRayQueryIsLSSHitNV %38 %23 %41
+%100 = OpSelect %9 %99 %41 %43
+%101 = OpINotEqual %38 %100 %43
+%102 = OpShiftLeftLogical %9 %20 %53
+%103 = OpBitwiseOr %9 %102 %41
+%104 = OpSelect %9 %101 %41 %43
+%105 = OpIMul %9 %20 %24
+%106 = OpIAdd %9 %105 %41
+%107 = OpCompositeConstruct %56 %104 %104 %104 %104
+OpImageWrite %15 %106 %107
+%108 = OpRayQueryGetRayFlagsKHR %9 %23
+%109 = OpRayQueryIsSphereHitNV %38 %23 %41
+%110 = OpSelect %9 %109 %41 %43
+%111 = OpINotEqual %38 %110 %43
+%112 = OpBitwiseOr %9 %102 %113
+%114 = OpSelect %9 %111 %41 %43
+%115 = OpIMul %9 %20 %24
+%116 = OpIAdd %9 %115 %113
+%117 = OpCompositeConstruct %56 %114 %114 %114 %114
+OpImageWrite %15 %116 %117
+%118 = OpRayQueryGetRayFlagsKHR %9 %23
+%121 = OpRayQueryGetIntersectionLSSPositionsNV %119 %23 %41
+%122 = OpRayQueryGetIntersectionLSSRadiiNV %120 %23 %41
+%123 = OpCompositeExtract %26 %121 0 0
+%124 = OpBitcast %9 %123
+%125 = OpCompositeExtract %26 %121 0 1
+%126 = OpBitcast %9 %125
+%127 = OpCompositeExtract %26 %121 0 2
+%128 = OpBitcast %9 %127
+%129 = OpCompositeExtract %26 %122 0
+%130 = OpBitcast %9 %129
+%131 = OpCompositeExtract %26 %121 1 0
+%132 = OpBitcast %9 %131
+%133 = OpCompositeExtract %26 %121 1 1
+%134 = OpBitcast %9 %133
+%135 = OpCompositeExtract %26 %121 1 2
+%136 = OpBitcast %9 %135
+%137 = OpCompositeExtract %26 %122 1
+%138 = OpBitcast %9 %137
+%139 = OpBitcast %26 %124
+%140 = OpBitcast %26 %126
+%141 = OpBitcast %26 %128
+%142 = OpBitcast %26 %130
+%143 = OpBitcast %26 %132
+%144 = OpBitcast %26 %134
+%145 = OpBitcast %26 %136
+%146 = OpBitcast %26 %138
+%147 = OpBitcast %9 %139
+%148 = OpCompositeConstruct %56 %147 %147 %147 %147
+OpImageWrite %14 %43 %148
+%149 = OpBitcast %9 %140
+%150 = OpCompositeConstruct %56 %149 %149 %149 %149
+OpImageWrite %14 %41 %150
+%151 = OpBitcast %9 %141
+%152 = OpCompositeConstruct %56 %151 %151 %151 %151
+OpImageWrite %14 %53 %152
+%153 = OpBitcast %9 %142
+%154 = OpCompositeConstruct %56 %153 %153 %153 %153
+OpImageWrite %14 %113 %154
+%155 = OpBitcast %9 %143
+%156 = OpCompositeConstruct %56 %155 %155 %155 %155
+OpImageWrite %14 %24 %156
+%158 = OpBitcast %9 %144
+%159 = OpCompositeConstruct %56 %158 %158 %158 %158
+OpImageWrite %14 %157 %159
+%161 = OpBitcast %9 %145
+%162 = OpCompositeConstruct %56 %161 %161 %161 %161
+OpImageWrite %14 %160 %162
+%164 = OpBitcast %9 %146
+%165 = OpCompositeConstruct %56 %164 %164 %164 %164
+OpImageWrite %14 %163 %165
+OpBranch %257
+%257 = OpLabel
+OpReturn
+OpFunctionEnd
+
